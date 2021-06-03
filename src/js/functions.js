@@ -1,6 +1,29 @@
 import Modal from './modal'
 import Browser from './browser'
 
+// logging utility method to make it easy to turn logging on and off
+const verbose = true //set to false to turn off all the debug logging
+export const log = function(msg, event = null) {
+  if (!verbose) return
+
+  // if an event is passed in, the timeStamp property is displayed;
+  // this is important because that property is the only record of
+  // when the event was actually triggered (otherwise a blocking
+  // event would fail to register until this method finally runs and
+  // there's an opportunity to use new Date().
+  const evtts = event?.timeStamp ?? 0
+  const fmtts = evtts > 0 ? `${(Math.floor(evtts / 10) / 100)}` : ''
+  if (fmtts) {
+    // Prepends the number of seconds after the document was created; it's good
+    // for relative timing, but difficult to correlate with absolute times when
+    // other thread-blocking activities are going on and iFrames are involved.
+    console.log(`[${fmtts}] ${msg}`)
+    console.log(event)
+  } else {
+    console.log(msg)
+  }    
+}
+
 export function addWrapper (htmlData, params) {
   const bodyStyle = 'font-family:' + params.font + ' !important; font-size: ' + params.font_size + ' !important; width:100%;'
   return '<div style="' + bodyStyle + '">' + htmlData + '</div>'
@@ -63,6 +86,7 @@ export function addHeader (printElement, params) {
 }
 
 export function cleanUp (params) {
+  log('start cleanup()')
   // If we are showing a feedback message to user, remove it
   if (params.showModal) Modal.close()
 
@@ -70,6 +94,7 @@ export function cleanUp (params) {
   if (params.onLoadingEnd) params.onLoadingEnd()
 
   // If preloading pdf files, clean blob url
+  console.log('clean blob url')
   if (params.showModal || params.onLoadingStart) window.URL.revokeObjectURL(params.printable)
 
   // Run onPrintDialogClose callback
@@ -80,19 +105,23 @@ export function cleanUp (params) {
     event = 'focus'
   }
 
-  const handler = () => {
+  const handler = (e) => {
+    log(`${event} handler called for onPrintDialogClose window event`, e)
+
     // Make sure the event only happens once.
     window.removeEventListener(event, handler)
 
+    log('on close triggered')
     params.onPrintDialogClose()
 
-    // Remove iframe from the DOM
+    log('destroy iframe')
     setTimeout(() => {                          // hacky delay to ensure that the
-      document.getElementById(params.frameId)   // iFrame isn't unloaded until there
-             ?.remove()                         // has been ample time to load the
-    }, 10000)                                   // the preview, preventing failure
+      document.getElementById(params.frameId)   // iFrame isn't unloaded until
+             ?.remove()                         // there has been ample time for
+    }, 10_000) // 10 second delay               // the preview to load
   }
 
+  log(`Attach onPrintDialogClose window event: '${event}'`)
   window.addEventListener(event, handler)
 }
 

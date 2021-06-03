@@ -1,8 +1,9 @@
 import Browser from './browser'
-import { cleanUp } from './functions'
+import { cleanUp, log } from './functions'
 
 const Print = {
   send: (params, printFrame) => {
+    log('Print.send()')
     // Append iframe element to document body
     document.getElementsByTagName('body')[0].appendChild(printFrame)
 
@@ -10,7 +11,26 @@ const Print = {
     const iframeElement = document.getElementById(params.frameId)
 
     // Wait for iframe to load all content
-    iframeElement.onload = () => {
+    iframeElement.onload = e => {
+      log('iFrame onload triggered', e)
+
+      // test different events to detect unload in Chrome
+      //'visibilitychange'
+      ;[ 'afterprint', 'unload', 'beforeunload', 'pagehide' ].forEach(eName => {
+        if (iframeElement.contentWindow?.[`on${eName}`] === undefined) {
+          log(`Unable to add event listener: '${eName}'`)
+        } else {          
+          try {
+            iframeElement.contentWindow.addEventListener(eName, function(event) {
+              log(`${eName} triggered from iFrame`, event)
+            })
+          } catch (err) {
+            log(`Error adding event listener: '${eName}'`)
+            log(err)            
+          }
+        }
+      })
+
       if (params.type === 'pdf') {
         // Add a delay for Firefox. In my tests, 1000ms was sufficient but 100ms was not
         if (Browser.isFirefox()) {
@@ -51,7 +71,9 @@ const Print = {
 }
 
 function performPrint (iframeElement, params) {
+  log('peformPrint()')
   try {
+    log('iframe focus')
     iframeElement.focus()
 
     // If Edge or IE, try catch with execCommand
@@ -63,9 +85,11 @@ function performPrint (iframeElement, params) {
       }
     } else {
       // Other browsers
+      log('call print')
       iframeElement.contentWindow.print()
     }
   } catch (error) {
+    log(error)
     params.onError(error)
   } finally {
     if (Browser.isFirefox()) {
