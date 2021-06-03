@@ -87,11 +87,10 @@ export function cleanUp (params) {
     params.onPrintDialogClose()
 
     // Remove iframe from the DOM
-    const iframe = document.getElementById(params.frameId)
-
-    if (iframe) {
-      iframe.remove()
-    }
+    setTimeout(() => {                          // hacky delay to ensure that the
+      document.getElementById(params.frameId)   // iFrame isn't unloaded until there
+             ?.remove()                         // has been ample time to load the
+    }, 10000)                                   // the preview, preventing failure
   }
 
   window.addEventListener(event, handler)
